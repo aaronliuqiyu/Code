@@ -50,7 +50,64 @@ new_construction = pd.read_excel(file_loc, sheet_name='New construction', usecol
 
 # Select only apartments #
 apartment = buildings.loc[buildings['Building type number'] == 133]
+apartment = apartment.loc[apartment['Construction year'] >= 1880]
 
-apartment_fs = apartment.groupby(["Construction year", "Code"])["Usable floor space"].sum()
-apartment_fs = apartment_fs.cumsum()
+# Grouby and sum #
+apartment_fs = apartment.groupby(["Code", "Construction year"])["Usable floor space"].sum()
 apartment_fs = pd.DataFrame(apartment_fs)
+apartment_kommun = apartment_fs.reset_index()
+
+codes = apartment['Code'].unique().astype(int)
+min_code = codes.min()
+max_code = codes.max()
+
+# Cumsum for each kommun to turn inflow into stock #
+final = []
+for i in codes:
+    df = apartment_kommun.loc[apartment_kommun['Code'] == i]
+    df['Usable floor space'] = df['Usable floor space'].cumsum()
+
+    final.append(df)
+    apartment_kommun_sum = pd.concat(final, ignore_index=True, axis=0)
+
+apartment_kommun_sum
+#%%
+years = apartment_kommun_sum['Construction year'].unique().astype(int)
+min_year = years.min()
+max_year = years.max()
+all_years = pd.DataFrame({'Construction year': range(min_year, max_year+1)})
+
+test = []
+for i in codes:
+    df = apartment_kommun_sum.loc[apartment_kommun_sum['Code'] == i]
+
+    merged_df = pd.merge(all_years, df, on='Construction year', how='left')
+    merged_df.iloc[0, -1]  = df.iloc[0, -1]
+    merged_df.iloc[-1, -1] = df.iloc[-1, -1]
+    # Interpolate missing values
+    merged_df['Usable floor space'] = merged_df['Usable floor space'].interpolate()
+    merged_df['Code'] = merged_df['Code'].fillna(i.astype(int))
+
+    test.append(merged_df)
+    apartment_kommun_int = pd.concat(test, ignore_index=True, axis=0)
+
+apartment_kommun_int
+#%%
+# MFA for each kommun #
+test = []
+test1 = []
+test2 = []
+
+for i in range(min_year, max_year):
+    df = apartment_kommun_int.loc[apartment_kommun_int['Code'] == i]
+    sc, outflow, inflow =  stock_driven(df, lifetime)
+    
+    test.append(sc)
+    test1.append(outflow)
+    test2.append(inflow)
+
+    final_result = pd.concat(test, ignore_index=True, axis=1)
+    final_result = pd.DataFrame(final_result)
+
+final_result
+# %%
