@@ -81,7 +81,7 @@ def outflow_cohort(stock,lifetime):
     dfs = []
 
 # Apply the function using a for loop
-    for i in range(0,143):
+    for i in range(0,171):
         df1 = stock.iloc[:, i]
         result_oc = stock_driven_norm(df1, lifetime)
         dfs.append(result_oc)

@@ -41,7 +41,6 @@ MF_structure_MI = pd.read_excel(file_loc, sheet_name='MF structure', index_col=0
 MF_skin_MI = pd.read_excel(file_loc, sheet_name='MF skin', index_col=0) 
 MF_space_MI = pd.read_excel(file_loc, sheet_name='MF space', index_col=0) 
 
-#%%
 file_loc1 = 'New Construction.xlsx'
 
 new_construction = pd.read_excel(file_loc1, sheet_name='Sheet1', index_col=0)
@@ -58,7 +57,6 @@ new_construction_kommun = pd.concat([new_construction, repeated_df], axis=1)
 new_construction_kommun = new_construction_kommun.rename(columns={'index': 'Construction year', 0: 'Usable floor space'})
 new_construction_kommun = new_construction_kommun[['Construction year', 'Code', 'Usable floor space']]
 
-#%%
 # Read in lifetime parameter from excel #
 lifetime = pd.read_excel(file_loc, sheet_name='Lifetime', usecols='A:C', index_col=0)
 skin_lifetime = pd.read_excel(file_loc, sheet_name='Skin Lifetime', usecols='A:C', index_col=0)
@@ -113,12 +111,13 @@ new = []
 for i in codes:
     df = apartment_kommun_int.loc[apartment_kommun_int['Code'] == i]
     new_c = new_construction_kommun.loc[new_construction_kommun['Code'] == i]
+    new_c['Usable floor space'] = new_c['Usable floor space'].cumsum()
+    new_c['Usable floor space'] = new_c['Usable floor space'] + df.iloc[-1,-1]
 
     concat_df = pd.concat([df, new_c], axis=0) 
 
     new.append(concat_df)
     apartment_kommun_int_new = pd.concat(new, ignore_index=True, axis=0)
-
 
 # MFA for each kommun #
 sc_df = []
@@ -127,11 +126,11 @@ in_df = []
 s_df = []
 
 for i in codes:
-    df = apartment_kommun_int.loc[apartment_kommun_int['Code'] == i]
+    df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == i]
     df = df.set_index('Construction year')
     df = df.drop(columns=['Code'])
 
-    sc, outflow, inflow =  stock_driven(df, lifetime)
+    sc, outflow, inflow = stock_driven(df, skin_lifetime)
     
     sc_df.append(sc)
     out_df.append(outflow)
@@ -154,7 +153,7 @@ def repeat_values(df, n):
     repeated_df = df.loc[df.index.repeat(n)].reset_index(drop=True)
     return repeated_df
 
-n = 143 # 143 years #
+n = 171 # 143 years #
 test1 = pd.DataFrame(codes)
 repeated_code = repeat_values(test1, n)
 repeated_code
@@ -170,7 +169,7 @@ inflow_all_kommun = inflow_all_kommun.rename(columns={'index': 'Construction yea
 
 outflow_all_kommun['Kommun'] = repeated_code
 outflow_all_kommun = outflow_all_kommun.rename(columns={'index': 'Construction year'})
-#%%
+
 # Mutiply MI to each kommun #
 structure_stock = []
 skin_stock = []
@@ -259,7 +258,6 @@ for i in codes:
     space_ren.append(apartment_space_ren)
     apartment_space_ren_floor = pd.concat(space_ren, ignore_index=False, axis=0)
 
- #%%
 # Multiply MI to floor space #
 inflow_sum = inflow_all_kommun.groupby(["Construction year"])["Inflow"].sum()
 inflow_sum = inflow_sum.reset_index()
@@ -269,7 +267,6 @@ apartment_structure_inflowa = np.array(inflow_sum)
 apartment_structure_inflow_m = MF_structure_MI.multiply(apartment_structure_inflowa, axis='columns')
 
 #%%
-
 demolition = []
 
 for i in codes:
