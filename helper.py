@@ -81,14 +81,14 @@ def outflow_cohort(stock,lifetime):
     dfs = []
 
 # Apply the function using a for loop
-    for i in range(0,201):
+    for i in range(0,143):
         df1 = stock.iloc[:, i]
         result_oc = stock_driven_norm(df1, lifetime)
-        dfs.append(result_oc.sum(axis=1))
+        dfs.append(result_oc)
 
-    # Concatenate all the resulting DataFrames
-    final_result = pd.concat(dfs, ignore_index=True, axis=1)
-    #final_result = final_result.sum(axis=1)
+        # Concatenate all the resulting DataFrames
+        final_result = pd.concat(dfs, ignore_index=True, axis=1)
+
     final_result = pd.DataFrame(final_result)
 
     return final_result
@@ -105,7 +105,8 @@ def MI_cohort(stock, MI):
         dfs.append(result.sum(axis=1))
 
     # Concatenate all the resulting DataFrames
-    final_result = pd.concat(dfs, ignore_index=True, axis=1)
+        final_result = pd.concat(dfs, ignore_index=True, axis=1)
+
     final_result = pd.DataFrame(final_result)
     final_result.columns = MI.columns
 
