@@ -47,6 +47,9 @@ new_construction = pd.read_excel(file_loc1, sheet_name='Sheet1', index_col=0)
 kommun_list =  pd.read_excel(file_loc1, sheet_name='Sheet2')
 repeated_df = pd.DataFrame(np.repeat(kommun_list.values, 28, axis=0), columns=kommun_list.columns)
 
+file_loc2 = 'Emission factor.xlsx'
+ef = pd.read_excel(file_loc2, index_col=0)
+
 # Reshape the new construction data #
 new_construction = new_construction.set_index('Code')
 repeated_index = np.tile(new_construction.index, len(new_construction.columns))
@@ -346,41 +349,82 @@ ax2.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
 # Adjust layout
 plt.tight_layout()
 plt.show()
+
 #%%
-test = inflow_all_kommun.groupby(["Construction year"])["Inflow"].sum()
+demo_m  = demolition_m.groupby(["Construction year"]).sum()
+demo_m = demo_m.drop(columns='Kommun')
 
-sc_plot = pd.DataFrame(test).iloc[-88:] / 1000
-sc_plot.plot(kind='line', marker='o', label='My Line Plot')
+demo_plot = demo_m.iloc[-28:] / 1000
+demo_plot.plot(kind='bar', stacked=True, colormap='viridis',legend=False)
 
-# Add labels and title
-plt.xlabel('X-axis Label')
-plt.ylabel('Y-axis Label')
-plt.title('Line Plot from DataFrame with Index')
-
-# Add a legend
-plt.legend()
-
-# Show the plot
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
 plt.show()
-# %%
-apartment_fs1 = apartment.groupby(["Construction year"])["Usable floor space"].sum()
-apartment_fs1 = apartment_fs1.cumsum()
-apartment_fs1 = pd.DataFrame(apartment_fs1)
+#%%
+structure_kommun = structure_stock_all.loc[structure_stock_all['Construction year'] == 2022]
+structure_kommun_1 = structure_kommun.loc[(structure_kommun['Kommun'] == 180) | (structure_kommun['Kommun'] == 1480) | (structure_kommun['Kommun'] == 1280) | (structure_kommun['Kommun'] == 380) | (structure_kommun['Kommun'] == 580)]
+structure_kommun_1 = structure_kommun_1.set_index('Kommun')
+structure_kommun_1 = structure_kommun_1.drop(columns='Construction year')
 
-apartment_sc, apartment_outflow, apartment_inflow =  stock_driven(apartment_fs1, lifetime)
-apartment_s = apartment_sc.sum(axis=1)
+structure_plot = structure_kommun_1 / 1000
+structure_plot.plot(kind='bar', stacked=True, colormap='viridis',legend=False)
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
 
-sc_plot = pd.DataFrame(apartment_inflow).iloc[-88:] / 1000
-sc_plot.plot(kind='line', marker='o', label='My Line Plot')
-
-# Add labels and title
-plt.xlabel('X-axis Label')
-plt.ylabel('Y-axis Label')
-plt.title('Line Plot from DataFrame with Index')
-
-# Add a legend
-plt.legend()
-
-# Show the plot
 plt.show()
+#%%
+skin_e = se_skin_m * ef
+
+skin_e_plot = skin_e.iloc[-51:] / 1000
+
+skin_e_plot.plot(kind='bar', stacked=True, colormap='viridis',legend=False)
+
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+#plt.set_title('Skin renovation embodied CO2',fontsize=10)
+#plt.set_ylabel('CO2 (ton)')
+plt.tight_layout()
+
+plt.savefig("Renovation emission.png",bbox_inches='tight', dpi=800)
+plt.show()
+#%%
+# define a function for calculating the stock driven inflow and outflow
+def stock_driven_init(stock,lifetime, init, st):  # stock is the different type of roads in different regions
+    shape_list = lifetime.iloc[:, 0]
+    scale_list = lifetime.iloc[:, 1]
+    
+    initial = np.array(init)
+
+    DSMforward = DSM(t=list(stock.index), s=np.array(stock),
+                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+
+    out_sc, out_oc, out_i = DSMforward.compute_stock_driven_model_initialstock(initial, st)
+
+    # sum up the total outflow and stock and add years as index #
+    out_oc[out_oc < 0] = 0
+    #out_oc = out_oc.sum(axis=1)
+    out_oc = pd.DataFrame(out_oc, index=np.unique(list(stock.index)))
+    #out_sc = out_sc.sum(axis=1)
+    out_sc = pd.DataFrame(out_sc, index=np.unique(list(stock.index)))
+    out_i = pd.DataFrame(out_i, index=np.unique(list(stock.index)))
+
+    return out_sc, out_oc, out_i
+#%%
+def compute_evolution(stock,lifetime, init, st):  # stock is the different type of roads in different regions
+    shape_list = lifetime.iloc[:, 0]
+    scale_list = lifetime.iloc[:, 1]
+
+    initial = np.array(init)
+
+    DSMforward = DSM(t=list(stock.index), s=np.array(stock),
+                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+
+    out_sc= DSMforward.compute_evolution_initialstock(initial,st)
+
+    out_sc = pd.DataFrame(out_sc, index=np.unique(list(stock.index)))
+
+
+    return out_sc
+#%%
+df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == 126]
+df = df.drop(columns=['Code', 'Construction year'])
+my_array = np.arange(143)
+out_sc, out_oc, out_i = stock_driven_init(df,lifetime, my_array, 144)
 # %%

@@ -507,7 +507,7 @@ class DynamicStockModel(object):
                             self.s_c[m::, m]  = self.i[m] * self.sf[m::, m]
                             self.o_c[m, m]    = self.i[m] * (1 - self.sf[m, m])
                 # Add historic stock series to total stock s:
-                self.s[0:SwitchTime-1]= self.s_c[0:SwitchTime-1,:].sum(axis =1).copy()                    
+                self.s[0:SwitchTime-1]= self.s_c[0:SwitchTime-1,:].sum(axis=1).reshape(-1, 1).copy()        # Changes #            
                 return self.s_c, self.o_c, self.i
             else:
                 # No lifetime distribution specified
