@@ -11,7 +11,8 @@ import geopandas as gpd
 
 pd.options.display.float_format = '{:.2f}'.format
 
-from helper import stock_driven
+from helper import compute_i
+from helper import compute_inflow_driven
 from helper import outflow_cohort
 from helper import MI_cohort
 
@@ -61,7 +62,7 @@ new_construction_kommun = new_construction_kommun.rename(columns={'index': 'Cons
 new_construction_kommun = new_construction_kommun[['Construction year', 'Code', 'Usable floor space']]
 
 # Read in lifetime parameter from excel #
-lifetime = pd.read_excel(file_loc, sheet_name='Lifetime', usecols='A:C', index_col=0)
+lifetime = pd.read_excel(file_loc, sheet_name='Lifetime', usecols='A:D', index_col=0)
 skin_lifetime = pd.read_excel(file_loc, sheet_name='Skin Lifetime', usecols='A:C', index_col=0)
 space_lifetime = pd.read_excel(file_loc, sheet_name='Space Lifetime', usecols='A:C', index_col=0)
 
@@ -78,26 +79,15 @@ codes = apartment['Code'].unique().astype(int)
 min_code = codes.min()
 max_code = codes.max()
 
-# Cumsum for each kommun to turn inflow into stock #
-final = []
-for i in codes:
-    df = apartment_kommun.loc[apartment_kommun['Code'] == i]
-    df['Usable floor space'] = df['Usable floor space'].cumsum()
-
-    final.append(df)
-    apartment_kommun_sum = pd.concat(final, ignore_index=True, axis=0)
-
-apartment_kommun_sum
-
 # Give all kommun all years and interpolate missing years #
-years = apartment_kommun_sum['Construction year'].unique().astype(int)
+years = apartment_kommun['Construction year'].unique().astype(int)
 min_year = years.min()
 max_year = years.max()
 all_years = pd.DataFrame({'Construction year': range(min_year, max_year+1)})
 
 test = []
 for i in codes:
-    df = apartment_kommun_sum.loc[apartment_kommun_sum['Code'] == i]
+    df = apartment_kommun.loc[apartment_kommun['Code'] == i]
 
     merged_df = pd.merge(all_years, df, on='Construction year', how='left')
     merged_df.iloc[0, -1]  = df.iloc[0, -1]
@@ -114,7 +104,7 @@ new = []
 for i in codes:
     df = apartment_kommun_int.loc[apartment_kommun_int['Code'] == i]
     new_c = new_construction_kommun.loc[new_construction_kommun['Code'] == i]
-    new_c['Usable floor space'] = new_c['Usable floor space'].cumsum()
+    #new_c['Usable floor space'] = new_c['Usable floor space'].cumsum()
     new_c['Usable floor space'] = new_c['Usable floor space'] + df.iloc[-1,-1]
 
     concat_df = pd.concat([df, new_c], axis=0) 
@@ -122,57 +112,41 @@ for i in codes:
     new.append(concat_df)
     apartment_kommun_int_new = pd.concat(new, ignore_index=True, axis=0)
 
-# MFA for each kommun #
-sc_df = []
-out_df= []
+# Calculate the inflow needed to generate each cohort for each kommun #
 in_df = []
-s_df = []
 
 for i in codes:
     df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == i]
     df = df.set_index('Construction year')
+    kommun = df['Code']
     df = df.drop(columns=['Code'])
 
-    sc, outflow, inflow = stock_driven(df, skin_lifetime)
+    out_i = compute_i(df,lifetime, df)
+    out_i['Kommun'] = kommun
     
-    sc_df.append(sc)
-    out_df.append(outflow)
-    in_df.append(inflow)
-    s_df.append(sc.sum(axis=1))
+    in_df.append(out_i)
 
-    sc_all_kommun = pd.concat(sc_df, ignore_index=False, axis=0)
-    stock_all_kommun = pd.concat(s_df, ignore_index=False, axis=0)
-    outflow_all_kommun = pd.concat(out_df, ignore_index=False, axis=0)
     inflow_all_kommun = pd.concat(in_df, ignore_index=False, axis=0)
 
-sc_all_kommun = sc_all_kommun.reset_index()
-stock_all_kommun = stock_all_kommun.reset_index()
 inflow_all_kommun = inflow_all_kommun.reset_index()
-outflow_all_kommun = outflow_all_kommun.reset_index()
-
-# Add kommun code #
-def repeat_values(df, n):
-    # Repeat each row n times
-    repeated_df = df.loc[df.index.repeat(n)].reset_index(drop=True)
-    return repeated_df
-
-n = 171 # 143 years #
-test1 = pd.DataFrame(codes)
-repeated_code = repeat_values(test1, n)
-repeated_code
-
-stock_all_kommun['Kommun'] = repeated_code
-stock_all_kommun = stock_all_kommun.rename(columns={'index': 'Construction year', 0: 'Usable floor space'})
-
-sc_all_kommun['Kommun'] = repeated_code
-sc_all_kommun
-
-inflow_all_kommun['Kommun'] = repeated_code
 inflow_all_kommun = inflow_all_kommun.rename(columns={'index': 'Construction year', 0: 'Inflow'})
 
-outflow_all_kommun['Kommun'] = repeated_code
-outflow_all_kommun = outflow_all_kommun.rename(columns={'index': 'Construction year'})
+sc_df = []
 
+for i in codes:
+    df = inflow_all_kommun.loc[inflow_all_kommun['Kommun'] == i]
+    df = df.set_index('Construction year')
+    kommun = df['Kommun']
+    df = df.drop(columns=['Kommun'])
+
+    out_sc = compute_inflow_driven(df.values.flatten(), lifetime)
+    out_sc['Kommun'] = kommun 
+    
+
+    sc_df.append(out_sc)
+
+    sc_all_kommun = pd.concat(sc_df, ignore_index=False, axis=0)
+#%%
 # Mutiply MI to each kommun #
 structure_stock = []
 skin_stock = []
@@ -181,7 +155,7 @@ space_stock  = []
 # Structure stock #
 for i in codes:
     df2 = sc_all_kommun.loc[sc_all_kommun['Kommun'] == i]
-    df2 = df2.set_index('index')
+    #df2 = df2.set_index('index')
     kommun = df2['Kommun']
     df2 = df2.drop(columns='Kommun')
 
@@ -198,7 +172,7 @@ structure_stock_all = structure_stock_all.rename(columns={'index': 'Construction
 # Skin stock #
 for i in codes:
     df2 = sc_all_kommun.loc[sc_all_kommun['Kommun'] == i]
-    df2 = df2.set_index('index')
+    #df2 = df2.set_index('index')
     kommun = df2['Kommun']
     df2 = df2.drop(columns='Kommun')
 
@@ -215,7 +189,7 @@ skin_stock_all = skin_stock_all.rename(columns={'index': 'Construction year'})
 # Space stock #
 for i in codes:
     df2 = sc_all_kommun.loc[sc_all_kommun['Kommun'] == i]
-    df2 = df2.set_index('index')
+    #df2 = df2.set_index('index')
     kommun = df2['Kommun']
     df2 = df2.drop(columns='Kommun')
 
@@ -406,25 +380,43 @@ def stock_driven_init(stock,lifetime, init, st):  # stock is the different type 
     out_i = pd.DataFrame(out_i, index=np.unique(list(stock.index)))
 
     return out_sc, out_oc, out_i
-#%%
-def compute_evolution(stock,lifetime, init, st):  # stock is the different type of roads in different regions
+
+
+# %%
+def compute_i(stock,lifetime, init): 
     shape_list = lifetime.iloc[:, 0]
     scale_list = lifetime.iloc[:, 1]
 
-    initial = np.array(init)
-
     DSMforward = DSM(t=list(stock.index), s=np.array(stock),
                      lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+    
+    initial = np.array(init)
 
-    out_sc= DSMforward.compute_evolution_initialstock(initial,st)
+    out_i = DSMforward.compute_i_from_s(initial)
 
-    out_sc = pd.DataFrame(out_sc, index=np.unique(list(stock.index)))
+    out_i = pd.DataFrame(out_i, index=np.unique(list(stock.index)))
 
+    return out_i
+# %%
+df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == 180]
+df = df.drop(columns=['Code', 'Construction year'])
+my_array = df.iloc[-143:]
+out_i = compute_i(df,lifetime, df)
+#%%
+def compute_inflow_driven(inflow,lifetime):  
+    shape_list = lifetime.iloc[:, 0]
+    scale_list = lifetime.iloc[:, 1]
+
+    DSMforward = DSM(t=list(range(1880,2051)), i=np.array(inflow),
+                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+    
+    out_sc = DSMforward.compute_s_c_inflow_driven()
+
+    out_sc = pd.DataFrame(out_sc, index=list(range(1880,2051)))
 
     return out_sc
-#%%
-df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == 126]
-df = df.drop(columns=['Code', 'Construction year'])
-my_array = np.arange(143)
-out_sc, out_oc, out_i = stock_driven_init(df,lifetime, my_array, 144)
+
+out_i = out_i.reset_index(drop=True)
+out_sc = compute_inflow_driven(out_i.values.flatten(),lifetime)
+out_sc
 # %%

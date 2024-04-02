@@ -76,6 +76,51 @@ def stock_driven_norm(stock,lifetime):  # stock is the different type of roads i
 
     return out_oc
 
+def compute_evolution(stock,lifetime, init, st):  # stock is the different type of roads in different regions
+    shape_list = lifetime.iloc[:, 0]
+    scale_list = lifetime.iloc[:, 1]
+
+    initial = np.array(init)
+
+    DSMforward = DSM(t=list(stock.index), s=np.array(stock),
+                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+
+    out_sc= DSMforward.compute_evolution_initialstock(initial,st)
+
+    out_sc = pd.DataFrame(out_sc, index=np.unique(list(stock.index)))
+
+
+    return out_sc
+
+def compute_i(stock,lifetime, init): 
+    mean_list = lifetime.iloc[:, 2]
+
+    DSMforward = DSM(t=list(stock.index), s=np.array(stock),
+                     lt={'Type': 'Fixed', 'Mean': np.array(mean_list)})
+    
+    initial = np.array(init)
+
+    out_i = DSMforward.compute_i_from_s(initial)
+
+    out_i = pd.DataFrame(out_i, index=np.unique(list(stock.index)))
+
+    return out_i
+
+def compute_inflow_driven(inflow,lifetime):
+
+    shape_list = lifetime.iloc[:, 0]
+    scale_list = lifetime.iloc[:, 1]  
+    mean_list = lifetime.iloc[:, 2]
+
+    DSMforward = DSM(t=list(range(1880,2051)), i=np.array(inflow),
+                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+    
+    out_sc = DSMforward.compute_s_c_inflow_driven()
+
+    out_sc = pd.DataFrame(out_sc, index=list(range(1880,2051)))
+
+    return out_sc
+
 def outflow_cohort(stock,lifetime):
     # Initialize an empty list to store DataFrames
     dfs = []
