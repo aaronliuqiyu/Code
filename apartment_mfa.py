@@ -65,6 +65,9 @@ lifetime = pd.read_excel(file_loc, sheet_name='Lifetime', usecols='A:C', index_c
 skin_lifetime = pd.read_excel(file_loc, sheet_name='Skin Lifetime', usecols='A:C', index_col=0)
 space_lifetime = pd.read_excel(file_loc, sheet_name='Space Lifetime', usecols='A:C', index_col=0)
 
+# Percentage of dwellings that have yet to be renovated #
+ren_percent = pd.read_excel(file_loc, sheet_name='Percentage', index_col=0)
+
 # Select only apartments #
 apartment = buildings.loc[buildings['Building type number'] == 133]
 apartment = apartment.loc[apartment['Construction year'] >= 1880]
@@ -133,7 +136,7 @@ for i in codes:
     df = df.set_index('Construction year')
     df = df.drop(columns=['Code'])
 
-    sc, outflow, inflow = stock_driven(df, skin_lifetime)
+    sc, outflow, inflow = stock_driven(df, lifetime)
     
     sc_df.append(sc)
     out_df.append(outflow)
@@ -165,7 +168,6 @@ stock_all_kommun['Kommun'] = repeated_code
 stock_all_kommun = stock_all_kommun.rename(columns={'index': 'Construction year', 0: 'Usable floor space'})
 
 sc_all_kommun['Kommun'] = repeated_code
-sc_all_kommun
 
 inflow_all_kommun['Kommun'] = repeated_code
 inflow_all_kommun = inflow_all_kommun.rename(columns={'index': 'Construction year', 0: 'Inflow'})
@@ -246,6 +248,12 @@ for i in codes:
     skin_ren.append(apartment_skin_ren)
     apartment_skin_ren_floor = pd.concat(skin_ren, ignore_index=False, axis=0)
 
+kommuns = apartment_skin_ren_floor['Kommun']
+apartment_skin_ren_floor_ee = apartment_skin_ren_floor.drop(columns='Kommun')
+apartment_skin_ren_floor_ee = apartment_skin_ren_floor_ee.iloc[:, :101]
+apartment_skin_ren_floor_ee = apartment_skin_ren_floor_ee * ren_percent
+apartment_skin_ren_floor_ee['Kommun'] = kommuns
+#%%
 space_ren = []
 
 for i in codes:
@@ -260,6 +268,8 @@ for i in codes:
 
     space_ren.append(apartment_space_ren)
     apartment_space_ren_floor = pd.concat(space_ren, ignore_index=False, axis=0)
+
+apartment_space_ren_floor_ee = apartment_space_ren_floor.iloc[:, list(range(101)) + [-1]]
 
 # Multiply MI to floor space #
 inflow_sum = inflow_all_kommun.groupby(["Construction year"])["Inflow"].sum()
@@ -304,6 +314,22 @@ for i in codes:
 apartment_skin_ren_m = apartment_skin_ren_m.reset_index()
 apartment_skin_ren_m = apartment_skin_ren_m.rename(columns={'index': 'Construction year'}) 
 
+skin_ren_m_ee = []
+
+for i in codes:
+    df2 = apartment_skin_ren_floor_ee.loc[apartment_skin_ren_floor_ee['Kommun'] == i]
+    kommun = df2['Kommun']
+    df2 = df2.drop(columns='Kommun')
+
+    apartment_skin_ren_m_ee  = MI_cohort(df2, MF_skin_MI)
+    apartment_skin_ren_m_ee['Kommun'] = kommun
+
+    skin_ren_m.append(apartment_skin_ren_m_ee)
+    apartment_skin_ren_m_ee = pd.concat(skin_ren_m_ee, ignore_index=False, axis=0)
+
+apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.reset_index()
+apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.rename(columns={'index': 'Construction year'}) 
+
 space_ren_m = []
 
 for i in codes:
@@ -319,6 +345,7 @@ for i in codes:
 
 apartment_space_ren_m = apartment_space_ren_m.reset_index()
 apartment_space_ren_m = apartment_space_ren_m.rename(columns={'index': 'Construction year'}) 
+
 #%%
 # Plotting #
 # Sum at national level #
@@ -423,7 +450,7 @@ def compute_evolution(stock,lifetime, init, st):  # stock is the different type 
 
     return out_sc
 #%%
-df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == 126]
+df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == 180]
 df = df.drop(columns=['Code', 'Construction year'])
 my_array = np.arange(143)
 out_sc, out_oc, out_i = stock_driven_init(df,lifetime, my_array, 144)
