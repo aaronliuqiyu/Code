@@ -65,6 +65,9 @@ lifetime = pd.read_excel(file_loc, sheet_name='Lifetime', usecols='A:C', index_c
 skin_lifetime = pd.read_excel(file_loc, sheet_name='Skin Lifetime', usecols='A:C', index_col=0)
 space_lifetime = pd.read_excel(file_loc, sheet_name='Space Lifetime', usecols='A:C', index_col=0)
 
+non_energy_MI = pd.read_excel(file_loc, sheet_name='MF non energy', index_col=0) 
+light_MI = pd.read_excel(file_loc, sheet_name='MF light', index_col=0) 
+
 # Percentage of dwellings that have yet to be renovated #
 ren_percent = pd.read_excel(file_loc, sheet_name='Percentage', index_col=0)
 
@@ -125,6 +128,12 @@ for i in codes:
     new.append(concat_df)
     apartment_kommun_int_new = pd.concat(new, ignore_index=True, axis=0)
 
+# MFA at the national level #   
+apartment_se_int_new = apartment_kommun_int_new.drop(columns='Code')
+apartment_se_int_new = apartment_se_int_new.groupby(["Construction year"]).sum()
+
+sc_se, outflow_se, inflow_se = stock_driven(apartment_se_int_new, lifetime)
+sc_se.columns = range(1880, 2051)
 # MFA for each kommun #
 sc_df = []
 out_df= []
@@ -221,7 +230,7 @@ for i in codes:
     kommun = df2['Kommun']
     df2 = df2.drop(columns='Kommun')
 
-    sp_stock = MI_cohort(df2, MF_space_MI)
+    sp_stock = MI_cohort(df2, MF_space_MI) 
     sp_stock.columns = MF_space_MI.columns
     sp_stock['Kommun'] = kommun
 
@@ -250,8 +259,8 @@ for i in codes:
 
 kommuns = apartment_skin_ren_floor['Kommun']
 apartment_skin_ren_floor_ee = apartment_skin_ren_floor.drop(columns='Kommun')
-apartment_skin_ren_floor_ee = apartment_skin_ren_floor_ee.iloc[:, :101]
-apartment_skin_ren_floor_ee = apartment_skin_ren_floor_ee * ren_percent
+repeat_ren_percent = pd.concat([ren_percent] * 290, ignore_index=False, axis=0)
+apartment_skin_ren_floor_ee = apartment_skin_ren_floor_ee * repeat_ren_percent
 apartment_skin_ren_floor_ee['Kommun'] = kommuns
 #%%
 space_ren = []
@@ -324,12 +333,46 @@ for i in codes:
     apartment_skin_ren_m_ee  = MI_cohort(df2, MF_skin_MI)
     apartment_skin_ren_m_ee['Kommun'] = kommun
 
-    skin_ren_m.append(apartment_skin_ren_m_ee)
+    skin_ren_m_ee.append(apartment_skin_ren_m_ee)
     apartment_skin_ren_m_ee = pd.concat(skin_ren_m_ee, ignore_index=False, axis=0)
 
 apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.reset_index()
 apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.rename(columns={'index': 'Construction year'}) 
 
+skin_ren_m_ne = []
+
+for i in codes:
+    df2 = apartment_skin_ren_floor_ee.loc[apartment_skin_ren_floor_ee['Kommun'] == i]
+    kommun = df2['Kommun']
+    df2 = df2.drop(columns='Kommun')
+    df2 = pd.DataFrame(df2)
+
+    apartment_skin_ren_m_ne  = MI_cohort(df2, pd.DataFrame(non_energy_MI))
+    apartment_skin_ren_m_ne['Kommun'] = kommun
+
+    skin_ren_m_ne.append(apartment_skin_ren_m_ne)
+    apartment_skin_ren_m_ne = pd.concat(skin_ren_m_ne, ignore_index=False, axis=0)
+
+apartment_skin_ren_m_ne = apartment_skin_ren_m_ne.reset_index()
+apartment_skin_ren_m_ne = apartment_skin_ren_m_ne.rename(columns={'index': 'Construction year'}) 
+
+skin_ren_m_light = []
+
+for i in codes:
+    df2 = apartment_skin_ren_floor_ee.loc[apartment_skin_ren_floor_ee['Kommun'] == i]
+    kommun = df2['Kommun']
+    df2 = df2.drop(columns='Kommun')
+    df2 = pd.DataFrame(df2)
+
+    apartment_skin_ren_m_light  = MI_cohort(df2, pd.DataFrame(light_MI))
+    apartment_skin_ren_m_light['Kommun'] = kommun
+
+    skin_ren_m_light.append(apartment_skin_ren_m_light)
+    apartment_skin_ren_m_light = pd.concat(skin_ren_m_light, ignore_index=False, axis=0)
+
+apartment_skin_ren_m_light = apartment_skin_ren_m_light.reset_index()
+apartment_skin_ren_m_light = apartment_skin_ren_m_light.rename(columns={'index': 'Construction year'}) 
+#%%
 space_ren_m = []
 
 for i in codes:
@@ -355,8 +398,6 @@ se_skin_m = se_skin_m.drop(columns='Kommun')
 se_space_m  = apartment_space_ren_m.groupby(["Construction year"]).sum()
 se_space_m = se_space_m.drop(columns='Kommun')
 
-import matplotlib.pyplot as plt
-
 inflow_plot = se_space_m.iloc[-28:] / 1000
 outflow_plot = se_skin_m.iloc[-28:] / 1000
 
@@ -378,6 +419,39 @@ plt.tight_layout()
 plt.show()
 
 #%%
+se_ne_m  = apartment_skin_ren_m_ne.groupby(["Construction year"]).sum()
+se_ne_m = se_ne_m.drop(columns='Kommun')
+
+se_light_m  = apartment_skin_ren_m_light.groupby(["Construction year"]).sum()
+se_light_m = se_light_m.drop(columns='Kommun')
+
+ne_plot = se_ne_m.iloc[-28:] / 1000
+light_plot = se_light_m.iloc[-28:] / 1000
+
+cm = 1/2.54  # centimeters in inches
+fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=True, figsize=(19*cm, 10*cm))
+
+ne_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax1, legend=False)
+light_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax2, legend=True)
+
+ax1.set_title('Apartment non energy',fontsize=10)
+ax2.set_title('Apartment light energy',fontsize=10)
+
+# Adding labels and title
+ax1.set_ylabel('Flow (ton)')
+ax2.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+# Adjust layout
+plt.tight_layout()
+plt.show()
+
+#%%
+
+light_plot = se_light_m.iloc[-48:] / 1000
+light_plot.plot(kind='bar', stacked=True, colormap='viridis',legend=False)
+
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+plt.show()
+#%%
 demo_m  = demolition_m.groupby(["Construction year"]).sum()
 demo_m = demo_m.drop(columns='Kommun')
 
@@ -385,6 +459,17 @@ demo_plot = demo_m.iloc[-28:] / 1000
 demo_plot.plot(kind='bar', stacked=True, colormap='viridis',legend=False)
 
 plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+plt.show()
+
+#%%
+structure_m  = structure_stock_all.groupby(["Construction year"]).sum()
+structure_m = structure_m.drop(columns='Kommun')
+
+structure_plot = structure_m.iloc[-28:] / 1000
+structure_plot.plot(kind='area', stacked=True, colormap='viridis',legend=False)
+
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+plt.tight_layout()
 plt.show()
 #%%
 structure_kommun = structure_stock_all.loc[structure_stock_all['Construction year'] == 2022]
@@ -398,6 +483,9 @@ plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
 
 plt.show()
 #%%
+se_skin_m  = apartment_skin_ren_m.groupby(["Construction year"]).sum()
+se_skin_m = se_skin_m.drop(columns='Kommun')
+
 skin_e = se_skin_m * ef
 
 skin_e_plot = skin_e.iloc[-51:] / 1000
@@ -411,47 +499,100 @@ plt.tight_layout()
 
 plt.savefig("Renovation emission.png",bbox_inches='tight', dpi=800)
 plt.show()
+
+# %%
+def label(column):
+    if column.name < 1965:
+        return '-1965'
+    elif 1965 <= column.name <= 1975:
+        return '1965-1975'
+    elif 1975 <= column.name <= 1985:
+        return '1975-1985'
+    elif 1985 <= column.name <= 1995:
+        return '1985-1995'
+    elif 1995 <= column.name <= 2005:
+        return '1995-2005'
+    elif 2005 <= column.name <= 2015:
+        return '1995-2015'
+    else:
+        return '2015-'
+# %%
+ranges = {
+    '-1965': range(1880, 1965),
+    '1965-1975': range(1965, 1975),
+    '1976-1985': range(1976, 1985),
+    '1986-1995': range(1986, 1995),
+    '1996-2005': range(1996, 2005),
+    '2006-2015': range(2006, 2015),
+    '2016-2022': range(2016, 2022),
+    '2022-2035': range(2023, 2035),
+    '2036-2050': range(2036, 2051),
+
+}
+
+sums = {}
+# Iterate over each range
+for range_name, columns in ranges.items():
+    # Extract columns within the current range
+    columns_in_range = sc.loc[:, columns[0]:columns[-1]]
+    # Sum the values in these columns
+    range_sum = columns_in_range.sum(axis=1)
+    # Store the sum in the dictionary
+    sums[range_name] = range_sum
+
+# Convert the dictionary to DataFrame
+sum_df = pd.DataFrame(sums)
+
+sum_df.iloc[-131:].plot(kind='area', stacked=True, colormap='viridis',legend=True)
+
+# Add labels and title
+plt.xlabel('Year')
+plt.ylabel('Values')
+plt.title('Stacked Area Plot')
+
+# Show plot
+plt.show()
+
+# %%
+structure_m  = structure_stock_all.groupby(["Construction year"]).sum()
+structure_m = structure_m.drop(columns='Kommun')
+
+skin_m  = skin_stock_all.groupby(["Construction year"]).sum()
+skin_m = skin_m.drop(columns='Kommun')
+
+space_m  = space_stock_all.groupby(["Construction year"]).sum()
+space_m = space_m.drop(columns='Kommun')
+
+all_m = pd.concat([structure_m, skin_m, space_m], axis=1).fillna(0)
+all_m = structure_m.add(skin_m, fill_value=0).add(space_m, fill_value=0)
+
+all_m.iloc[-131:].plot(kind='area', stacked=True, legend=True)
+# Add labels and title
+plt.xlabel('Year')
+plt.ylabel('Values')
+plt.title('Stacked Area Plot')
+
+# Show plot
+plt.show()
 #%%
-# define a function for calculating the stock driven inflow and outflow
-def stock_driven_init(stock,lifetime, init, st):  # stock is the different type of roads in different regions
-    shape_list = lifetime.iloc[:, 0]
-    scale_list = lifetime.iloc[:, 1]
-    
-    initial = np.array(init)
 
-    DSMforward = DSM(t=list(stock.index), s=np.array(stock),
-                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
+cm = 1/2.54  # centimeters in inches
+fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=False, figsize=(19*cm, 10*cm))
 
-    out_sc, out_oc, out_i = DSMforward.compute_stock_driven_model_initialstock(initial, st)
+floorstock_plot = sum_df.iloc[-131:]
+all_m_plot = all_m.iloc[-131:] / 1000
 
-    # sum up the total outflow and stock and add years as index #
-    out_oc[out_oc < 0] = 0
-    #out_oc = out_oc.sum(axis=1)
-    out_oc = pd.DataFrame(out_oc, index=np.unique(list(stock.index)))
-    #out_sc = out_sc.sum(axis=1)
-    out_sc = pd.DataFrame(out_sc, index=np.unique(list(stock.index)))
-    out_i = pd.DataFrame(out_i, index=np.unique(list(stock.index)))
+floorstock_plot.plot(kind='area', stacked=True, colormap='viridis',ax=ax1, legend=True)
+all_m_plot.plot(kind='area', stacked=True, colormap='viridis',ax=ax2, legend=True)
 
-    return out_sc, out_oc, out_i
-#%%
-def compute_evolution(stock,lifetime, init, st):  # stock is the different type of roads in different regions
-    shape_list = lifetime.iloc[:, 0]
-    scale_list = lifetime.iloc[:, 1]
+ax1.set_title('Building stock',fontsize=10)
+ax2.set_title('Material stock',fontsize=10)
 
-    initial = np.array(init)
-
-    DSMforward = DSM(t=list(stock.index), s=np.array(stock),
-                     lt={'Type': 'Weibull', 'Shape': np.array(shape_list), 'Scale': np.array(scale_list)})
-
-    out_sc= DSMforward.compute_evolution_initialstock(initial,st)
-
-    out_sc = pd.DataFrame(out_sc, index=np.unique(list(stock.index)))
-
-
-    return out_sc
-#%%
-df = apartment_kommun_int_new.loc[apartment_kommun_int_new['Code'] == 180]
-df = df.drop(columns=['Code', 'Construction year'])
-my_array = np.arange(143)
-out_sc, out_oc, out_i = stock_driven_init(df,lifetime, my_array, 144)
+# Adding labels and title
+#ax1.set_ylabel('Flow (ton)')
+ax1.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=5)
+ax2.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=5)
+# Adjust layout
+plt.tight_layout()
+plt.show()
 # %%
