@@ -67,6 +67,7 @@ space_lifetime = pd.read_excel(file_loc, sheet_name='Space Lifetime', usecols='A
 
 non_energy_MI = pd.read_excel(file_loc, sheet_name='MF non energy', index_col=0) 
 light_MI = pd.read_excel(file_loc, sheet_name='MF light', index_col=0) 
+deep_MI = pd.read_excel(file_loc, sheet_name='MF deep', index_col=0) 
 
 # Percentage of dwellings that have yet to be renovated #
 ren_percent = pd.read_excel(file_loc, sheet_name='Percentage', index_col=0)
@@ -174,15 +175,15 @@ repeated_code = repeat_values(test1, n)
 repeated_code
 
 stock_all_kommun['Kommun'] = repeated_code
-stock_all_kommun = stock_all_kommun.rename(columns={'index': 'Construction year', 0: 'Usable floor space'})
+stock_all_kommun = stock_all_kommun.rename(columns={'index': 'Year', 0: 'Usable floor space'})
 
 sc_all_kommun['Kommun'] = repeated_code
 
 inflow_all_kommun['Kommun'] = repeated_code
-inflow_all_kommun = inflow_all_kommun.rename(columns={'index': 'Construction year', 0: 'Inflow'})
+inflow_all_kommun = inflow_all_kommun.rename(columns={'index': 'Year', 0: 'Inflow'})
 
 outflow_all_kommun['Kommun'] = repeated_code
-outflow_all_kommun = outflow_all_kommun.rename(columns={'index': 'Construction year'})
+outflow_all_kommun = outflow_all_kommun.rename(columns={'index': 'Year'})
 
 # Mutiply MI to each kommun #
 structure_stock = []
@@ -204,7 +205,7 @@ for i in codes:
     structure_stock_all = pd.concat(structure_stock, ignore_index=False, axis=0)
 
 structure_stock_all = structure_stock_all.reset_index()
-structure_stock_all = structure_stock_all.rename(columns={'index': 'Construction year'}) 
+structure_stock_all = structure_stock_all.rename(columns={'index': 'Year'}) 
 
 # Skin stock #
 for i in codes:
@@ -221,7 +222,7 @@ for i in codes:
     skin_stock_all = pd.concat(skin_stock, ignore_index=False, axis=0)
 
 skin_stock_all = skin_stock_all.reset_index()
-skin_stock_all = skin_stock_all.rename(columns={'index': 'Construction year'})
+skin_stock_all = skin_stock_all.rename(columns={'index': 'Year'})
 
 # Space stock #
 for i in codes:
@@ -238,7 +239,7 @@ for i in codes:
     space_stock_all = pd.concat(space_stock, ignore_index=False, axis=0)
 
 space_stock_all = space_stock_all.reset_index()
-space_stock_all = space_stock_all.rename(columns={'index': 'Construction year'}) 
+space_stock_all = space_stock_all.rename(columns={'index': 'Year'}) 
 
 #%%
 # Renovation in terms of floor area #
@@ -321,7 +322,7 @@ for i in codes:
     apartment_skin_ren_m = pd.concat(skin_ren_m, ignore_index=False, axis=0)
 
 apartment_skin_ren_m = apartment_skin_ren_m.reset_index()
-apartment_skin_ren_m = apartment_skin_ren_m.rename(columns={'index': 'Construction year'}) 
+apartment_skin_ren_m = apartment_skin_ren_m.rename(columns={'index': 'Year'}) 
 
 skin_ren_m_ee = []
 
@@ -337,7 +338,7 @@ for i in codes:
     apartment_skin_ren_m_ee = pd.concat(skin_ren_m_ee, ignore_index=False, axis=0)
 
 apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.reset_index()
-apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.rename(columns={'index': 'Construction year'}) 
+apartment_skin_ren_m_ee = apartment_skin_ren_m_ee.rename(columns={'index': 'Year'}) 
 
 skin_ren_m_ne = []
 
@@ -354,7 +355,7 @@ for i in codes:
     apartment_skin_ren_m_ne = pd.concat(skin_ren_m_ne, ignore_index=False, axis=0)
 
 apartment_skin_ren_m_ne = apartment_skin_ren_m_ne.reset_index()
-apartment_skin_ren_m_ne = apartment_skin_ren_m_ne.rename(columns={'index': 'Construction year'}) 
+apartment_skin_ren_m_ne = apartment_skin_ren_m_ne.rename(columns={'index': 'Year'}) 
 
 skin_ren_m_light = []
 
@@ -371,7 +372,24 @@ for i in codes:
     apartment_skin_ren_m_light = pd.concat(skin_ren_m_light, ignore_index=False, axis=0)
 
 apartment_skin_ren_m_light = apartment_skin_ren_m_light.reset_index()
-apartment_skin_ren_m_light = apartment_skin_ren_m_light.rename(columns={'index': 'Construction year'}) 
+apartment_skin_ren_m_light = apartment_skin_ren_m_light.rename(columns={'index': 'Year'}) 
+
+skin_ren_m_deep = []
+
+for i in codes:
+    df2 = apartment_skin_ren_floor_ee.loc[apartment_skin_ren_floor_ee['Kommun'] == i]
+    kommun = df2['Kommun']
+    df2 = df2.drop(columns='Kommun')
+    df2 = pd.DataFrame(df2)
+
+    apartment_skin_ren_m_deep  = MI_cohort(df2, pd.DataFrame(deep_MI))
+    apartment_skin_ren_m_deep['Kommun'] = kommun
+
+    skin_ren_m_deep.append(apartment_skin_ren_m_deep)
+    apartment_skin_ren_m_deep = pd.concat(skin_ren_m_deep, ignore_index=False, axis=0)
+
+apartment_skin_ren_m_deep = apartment_skin_ren_m_deep.reset_index()
+apartment_skin_ren_m_deep = apartment_skin_ren_m_deep.rename(columns={'index': 'Year'}) 
 #%%
 space_ren_m = []
 
@@ -419,29 +437,36 @@ plt.tight_layout()
 plt.show()
 
 #%%
-se_ne_m  = apartment_skin_ren_m_ne.groupby(["Construction year"]).sum()
+se_ne_m  = apartment_skin_ren_m_ne.groupby(["Year"]).sum()
 se_ne_m = se_ne_m.drop(columns='Kommun')
 
-se_light_m  = apartment_skin_ren_m_light.groupby(["Construction year"]).sum()
-se_light_m = se_light_m.drop(columns='Kommun')
+se_deep_m  = apartment_skin_ren_m_deep.groupby(["Year"]).sum()
+se_deep_m = se_deep_m.drop(columns='Kommun')
 
 ne_plot = se_ne_m.iloc[-28:] / 1000
-light_plot = se_light_m.iloc[-28:] / 1000
+deep_plot = se_deep_m.iloc[-28:] / 1000
 
 cm = 1/2.54  # centimeters in inches
 fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=True, figsize=(19*cm, 10*cm))
 
 ne_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax1, legend=False)
-light_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax2, legend=True)
+deep_plot.plot(kind='bar', stacked=True, colormap='plasma',ax=ax2, legend=True)
 
 ax1.set_title('Apartment non energy',fontsize=10)
-ax2.set_title('Apartment light energy',fontsize=10)
+ax2.set_title('Apartment deep energy',fontsize=10)
 
 # Adding labels and title
 ax1.set_ylabel('Flow (ton)')
-ax2.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+
+handles1, labels1 = ax1.get_legend_handles_labels()
+handles2, labels2 = ax2.get_legend_handles_labels()
+ax2.legend(handles1 + handles2, labels1 + labels2, loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+
+#ax1.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=4)
+#ax2.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
 # Adjust layout
 plt.tight_layout()
+plt.savefig("Renovation material.png",bbox_inches='tight', dpi=800)
 plt.show()
 
 #%%
@@ -500,6 +525,54 @@ plt.tight_layout()
 plt.savefig("Renovation emission.png",bbox_inches='tight', dpi=800)
 plt.show()
 
+#%%
+deep_e = se_deep_m * ef
+deep_e = deep_e.dropna(axis=1, how='any')
+deep_e_plot = deep_e.iloc[-51:] / 1000
+
+deep_e_plot.plot(kind='bar', stacked=True, colormap='viridis',legend=False)
+
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+#plt.set_title('Skin renovation embodied CO2',fontsize=10)
+#plt.set_ylabel('CO2 (ton)')
+plt.tight_layout()
+plt.show()
+
+#%%
+se_ne_m  = apartment_skin_ren_m_ne.groupby(["Year"]).sum()
+se_ne_m = se_ne_m.drop(columns='Kommun')
+
+se_deep_m  = apartment_skin_ren_m_deep.groupby(["Year"]).sum()
+se_deep_m = se_deep_m.drop(columns='Kommun')
+
+ne_e = se_ne_m  * ef
+ne_e = ne_e.dropna(axis=1, how='any')
+ne_e_plot = ne_e.iloc[-31:] / 1000
+
+deep_e = se_deep_m * ef
+deep_e = deep_e.dropna(axis=1, how='any')
+deep_e_plot = deep_e.iloc[-31:] / 1000
+
+cm = 1/2.54  # centimeters in inches
+fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=True, figsize=(19*cm, 10*cm))
+
+ne_e_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax1, legend=False)
+deep_e_plot.plot(kind='bar', stacked=True, colormap='rainbow',ax=ax2, legend=True)
+
+ax1.set_title('Apartment non energy emissions',fontsize=10)
+ax2.set_title('Apartment deep energy emissions',fontsize=10)
+
+# Adding labels and title
+ax1.set_ylabel('Embodied carbon (ton)')
+
+handles1, labels1 = ax1.get_legend_handles_labels()
+handles2, labels2 = ax2.get_legend_handles_labels()
+ax2.legend(handles1 + handles2, labels1 + labels2, loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
+
+# Adjust layout
+plt.tight_layout()
+plt.savefig("Renovation emission.png",bbox_inches='tight', dpi=800)
+plt.show()
 # %%
 def label(column):
     if column.name < 1965:
