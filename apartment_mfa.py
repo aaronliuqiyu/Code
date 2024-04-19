@@ -25,10 +25,13 @@ pd.set_option('mode.chained_assignment', None)
 # Read in file with pickle #
 pickle_file_path = "C:\\Users\\qiyu\\OneDrive - Chalmers\\Paper 3\\Data\\Building_input.pkl"
 buildings = pd.read_pickle(pickle_file_path)
-buildings
 
 buildings['County'] = buildings['County'].astype(int)
 buildings['Municipality'] = buildings['Municipality'].astype(int)
+
+#def add_zero(x):
+#    return f'0{x}' if len(str(x)) == 1 else x
+#buildings['Municipality'] = buildings['Municipality'].apply(add_zero)
 buildings['Code'] = buildings['County'].astype(str) + buildings['Municipality'].astype(str)
 buildings['Code'] = buildings['Code'].astype(int)
 
@@ -81,6 +84,7 @@ apartment_fs = apartment.groupby(["Code", "Construction year"])["Usable floor sp
 apartment_fs = pd.DataFrame(apartment_fs)
 apartment_kommun = apartment_fs.reset_index()
 
+#%%
 codes = apartment['Code'].unique().astype(int)
 min_code = codes.min()
 max_code = codes.max()
@@ -294,7 +298,7 @@ demolition = []
 
 for i in codes:
     df2 = outflow_all_kommun.loc[outflow_all_kommun['Kommun'] == i]
-    df2 = df2.set_index('Construction year')
+    df2 = df2.set_index('Year')
     kommun = df2['Kommun']
     df2 = df2.drop(columns='Kommun')
 
@@ -410,10 +414,10 @@ apartment_space_ren_m = apartment_space_ren_m.rename(columns={'index': 'Construc
 #%%
 # Plotting #
 # Sum at national level #
-se_skin_m  = apartment_skin_ren_m.groupby(["Construction year"]).sum()
+se_skin_m  = apartment_skin_ren_m.groupby(["Year"]).sum()
 se_skin_m = se_skin_m.drop(columns='Kommun')
 
-se_space_m  = apartment_space_ren_m.groupby(["Construction year"]).sum()
+se_space_m  = apartment_space_ren_m.groupby(["Year"]).sum()
 se_space_m = se_space_m.drop(columns='Kommun')
 
 inflow_plot = se_space_m.iloc[-28:] / 1000
@@ -450,7 +454,7 @@ cm = 1/2.54  # centimeters in inches
 fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=True, figsize=(19*cm, 10*cm))
 
 ne_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax1, legend=False)
-deep_plot.plot(kind='bar', stacked=True, colormap='plasma',ax=ax2, legend=True)
+deep_plot.plot(kind='bar', stacked=True, colormap='cool',ax=ax2, legend=True)
 
 ax1.set_title('Apartment non energy',fontsize=10)
 ax2.set_title('Apartment deep energy',fontsize=10)
@@ -508,7 +512,7 @@ plt.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=8)
 
 plt.show()
 #%%
-se_skin_m  = apartment_skin_ren_m.groupby(["Construction year"]).sum()
+se_skin_m  = apartment_skin_ren_m.groupby(["Year"]).sum()
 se_skin_m = se_skin_m.drop(columns='Kommun')
 
 skin_e = se_skin_m * ef
@@ -556,8 +560,8 @@ deep_e_plot = deep_e.iloc[-31:] / 1000
 cm = 1/2.54  # centimeters in inches
 fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=True, figsize=(19*cm, 10*cm))
 
-ne_e_plot.plot(kind='bar', stacked=True, colormap='viridis',ax=ax1, legend=False)
-deep_e_plot.plot(kind='bar', stacked=True, colormap='rainbow',ax=ax2, legend=True)
+ne_e_plot.plot(kind='area', stacked=True, colormap='viridis',ax=ax1, legend=False)
+deep_e_plot.plot(kind='area', stacked=True, colormap='cool',ax=ax2, legend=True)
 
 ax1.set_title('Apartment non energy emissions',fontsize=10)
 ax2.set_title('Apartment deep energy emissions',fontsize=10)
@@ -589,7 +593,7 @@ def label(column):
         return '1995-2015'
     else:
         return '2015-'
-# %%
+
 ranges = {
     '-1965': range(1880, 1965),
     '1965-1975': range(1965, 1975),
@@ -607,7 +611,7 @@ sums = {}
 # Iterate over each range
 for range_name, columns in ranges.items():
     # Extract columns within the current range
-    columns_in_range = sc.loc[:, columns[0]:columns[-1]]
+    columns_in_range = sc_se.loc[:, columns[0]:columns[-1]]
     # Sum the values in these columns
     range_sum = columns_in_range.sum(axis=1)
     # Store the sum in the dictionary
@@ -627,13 +631,13 @@ plt.title('Stacked Area Plot')
 plt.show()
 
 # %%
-structure_m  = structure_stock_all.groupby(["Construction year"]).sum()
+structure_m  = structure_stock_all.groupby(["Year"]).sum()
 structure_m = structure_m.drop(columns='Kommun')
 
-skin_m  = skin_stock_all.groupby(["Construction year"]).sum()
+skin_m  = skin_stock_all.groupby(["Year"]).sum()
 skin_m = skin_m.drop(columns='Kommun')
 
-space_m  = space_stock_all.groupby(["Construction year"]).sum()
+space_m  = space_stock_all.groupby(["Year"]).sum()
 space_m = space_m.drop(columns='Kommun')
 
 all_m = pd.concat([structure_m, skin_m, space_m], axis=1).fillna(0)
@@ -648,12 +652,11 @@ plt.title('Stacked Area Plot')
 # Show plot
 plt.show()
 #%%
-
 cm = 1/2.54  # centimeters in inches
 fig, ((ax1, ax2)) = plt.subplots(1, 2, sharey=False, figsize=(19*cm, 10*cm))
 
 floorstock_plot = sum_df.iloc[-131:]
-all_m_plot = all_m.iloc[-131:] / 1000
+all_m_plot = all_m.iloc[-131:] / 1000000000
 
 floorstock_plot.plot(kind='area', stacked=True, colormap='viridis',ax=ax1, legend=True)
 all_m_plot.plot(kind='area', stacked=True, colormap='viridis',ax=ax2, legend=True)
@@ -662,10 +665,137 @@ ax1.set_title('Building stock',fontsize=10)
 ax2.set_title('Material stock',fontsize=10)
 
 # Adding labels and title
-#ax1.set_ylabel('Flow (ton)')
+ax1.set_xlabel('Year')
+ax1.set_ylabel('Floor space (m2)')
+ax2.set_ylabel('Mton')
 ax1.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=5)
 ax2.legend(loc='upper left', bbox_to_anchor=(1, 1),fontsize=5)
 # Adjust layout
 plt.tight_layout()
+plt.savefig("stock area plot.svg", dpi=1200,bbox_inches='tight')
+plt.show()
+#%%
+shapefile_path = "./Kommun_Sweref99TM.shp"
+# Read the shapefile
+kommun_shape = gpd.read_file(shapefile_path)
+kommun_shape['KnKod'] = kommun_shape['KnKod'].astype(int)
+kommun_shape = kommun_shape.rename(columns={'KnKod': 'Code'})
+
+def add_zero(x):
+    return f'0{x}' if len(str(x)) == 1 else x
+buildings['Municipality'] = buildings['Municipality'].apply(add_zero)
+buildings['Code'] = buildings['County'].astype(str) + buildings['Municipality'].astype(str)
+buildings['Code'] = buildings['Code'].astype(int)
+
+apartment = buildings.loc[buildings['Building type number'] == 133]
+apartment = apartment.loc[apartment['Construction year'] >= 1880]
+
+floor = apartment.groupby('Code')['Usable floor space'].sum()
+floor = floor.reset_index()
+floor['Code'] = floor['Code'].astype(int)
+floor = kommun_shape.merge(floor, on='Code')
+
+stockholm_floor = floor.loc[(floor['Code'] == 180) | (floor['Code'] == 126) | (floor['Code'] == 123)| (floor['Code'] == 184)| (floor['Code'] == 163)| (floor['Code'] == 127)| (floor['Code'] == 136)| (floor['Code'] == 138)| (floor['Code'] == 183)| (floor['Code'] == 182)| (floor['Code'] == 162)]
+
+structure_2022 = structure_stock_all.loc[(structure_stock_all['Year'] == 2022)]
+skin_2022 = skin_stock_all.loc[(skin_stock_all['Year'] == 2022)]
+space_2022 = space_stock_all.loc[(space_stock_all['Year'] == 2022)]
+
+file_loc = 'Code.xlsx'
+# Read in material intensity values #
+kommun_codes = pd.read_excel(file_loc, index_col=0) 
+
+structure_2022_sum = structure_2022.iloc[:, 1:16].sum(axis=1, skipna=True)
+structure_2022_sum = structure_2022_sum.reset_index().drop('index', axis=1)
+structure_2022_sum['Kommun'] = kommun_codes
+skin_2022_sum = skin_2022.iloc[:, 1:16].sum(axis=1, skipna=True)
+skin_2022_sum = skin_2022_sum.reset_index().drop('index', axis=1)
+skin_2022_sum['Kommun'] = kommun_codes
+space_2022_sum = space_2022.iloc[:, 1:16].sum(axis=1, skipna=True)
+space_2022_sum = space_2022_sum.reset_index().drop('index', axis=1)
+space_2022_sum['Kommun'] = kommun_codes
+
+structure_sum = structure_2022_sum.rename(columns={0: 'Material stock', 'Kommun':'Code'})
+#structure_sum['Code'] = sorted_df['Code'].astype(int)
+structure_sum = structure_sum.sort_values(by='Code')
+structure_sum = kommun_shape.merge(structure_sum, on='Code')
+stockholm_structure_sum = structure_sum.loc[(structure_sum['Code'] == 180) | (structure_sum['Code'] == 126) | (structure_sum['Code'] == 123)| (structure_sum['Code'] == 184)| (structure_sum['Code'] == 163)| (structure_sum['Code'] == 127)| (structure_sum['Code'] == 136)| (structure_sum['Code'] == 138)| (structure_sum['Code'] == 183)| (structure_sum['Code'] == 182)| (structure_sum['Code'] == 162)]
+
+all_sum = structure_2022_sum + skin_2022_sum + space_2022_sum
+all_sum['Kommun'] = all_sum['Kommun']/3
+all_sum = all_sum.rename(columns={0: 'Material stock', 'Kommun':'Code'})
+#all_sum['Code'] = sorted_df['Code'].astype(int)
+all_sum = kommun_shape.merge(all_sum, on='Code')
+all_sum['Material stock'] = all_sum['Material stock']/1000000000 #kg to mt
+all_sum['Area'] = all_sum.area/100000
+all_sum['Material stock density'] = all_sum['Material stock'] * 1000 / all_sum['Area']
+
+stockholm_2022_sum = all_sum.loc[(all_sum['Code'] == 180) | (all_sum['Code'] == 126) | (all_sum['Code'] == 123)| (all_sum['Code'] == 184)| (all_sum['Code'] == 163)| (all_sum['Code'] == 127)| (all_sum['Code'] == 136)| (all_sum['Code'] == 138)| (all_sum['Code'] == 183)| (all_sum['Code'] == 182)| (all_sum['Code'] == 162)]
+
+#%%
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+
+fig, axs = plt.subplots(1, 3, figsize=(15, 10))
+
+# Plot the full datasets
+floor.plot("Usable floor space",categorical=False, legend=True, vmin=0,  legend_kwds={"label": "Usable floor space"},ax=axs[0])
+all_sum.plot("Material stock",categorical=False, legend=True,  legend_kwds={"label": "Mton"},ax=axs[1])
+all_sum.plot("Material stock density",categorical=False, legend=True, legend_kwds={"label": "Kton per km2"}, ax=axs[2])
+
+axs_zoom1 = plt.axes([0.22, 0.41, 0.1, 0.1])  # Adjust position and size of the zoomed-in plot
+axs_zoom2 = plt.axes([0.495, 0.41, 0.1, 0.1])  # Adjust position and size of the zoomed-in plot
+axs_zoom3 = plt.axes([0.7675, 0.41, 0.1, 0.1])  # Adjust position and size of the zoomed-in plot
+
+# Plot the zoomed-in areas
+stockholm_floor.plot("Usable floor space", categorical=False, legend=False, vmin=0,ax=axs_zoom1)
+stockholm_2022_sum.plot("Material stock",categorical=False, legend=False,ax=axs_zoom2)
+stockholm_2022_sum.plot("Material stock density",categorical=False, legend=False,ax=axs_zoom3)
+
+# Draw a line from the zoomed-in area to the smaller plot
+#line = axs[0].plot([zoom_centroid.x, 0.9], [zoom_centroid.y, 0.9], color='green')
+
+axs[0].set_title('Total usable floor space',fontsize=10)
+axs[1].set_title('Material stock',fontsize=10)
+axs[2].set_title('Material stock density',fontsize=10)
+axs_zoom1.set_title('Stockholm',fontsize=10)
+axs_zoom2.set_title('Stockholm',fontsize=10)
+axs_zoom3.set_title('Stockholm',fontsize=10)
+
+axs[0].axes.xaxis.set_ticklabels([])
+axs[0].axes.yaxis.set_ticklabels([])
+axs[0].set_axis_off()
+
+axs[1].axes.xaxis.set_ticklabels([])
+axs[1].axes.yaxis.set_ticklabels([])
+axs[1].set_axis_off()
+
+axs[2].axes.xaxis.set_ticklabels([])
+axs[2].axes.yaxis.set_ticklabels([])
+axs[2].set_axis_off()
+
+axs_zoom1.axes.xaxis.set_ticklabels([])
+axs_zoom1.axes.yaxis.set_ticklabels([])
+axs_zoom1.set_axis_off()
+
+axs_zoom2.axes.xaxis.set_ticklabels([])
+axs_zoom2.axes.yaxis.set_ticklabels([])
+axs_zoom2.set_axis_off()
+
+axs_zoom3.axes.xaxis.set_ticklabels([])
+axs_zoom3.axes.yaxis.set_ticklabels([])
+axs_zoom3.set_axis_off()
+# Adjust layout
+#plt.tight_layout()
+
+def annotate_upper_left(ax, label):
+    ax.annotate(label, xy=(0, 1.1), xycoords='axes fraction', fontsize=10,
+                horizontalalignment='left', verticalalignment='top')
+annotate_upper_left(axs[0], '(a)')
+annotate_upper_left(axs[1], '(b)')
+annotate_upper_left(axs[2], '(c)')
+
+
+plt.savefig("stock map plot.svg", dpi=1200,bbox_inches='tight')
 plt.show()
 # %%
