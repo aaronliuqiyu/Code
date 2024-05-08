@@ -84,7 +84,6 @@ apartment_fs = apartment.groupby(["Code", "Construction year"])["Usable floor sp
 apartment_fs = pd.DataFrame(apartment_fs)
 apartment_kommun = apartment_fs.reset_index()
 
-#%%
 codes = apartment['Code'].unique().astype(int)
 min_code = codes.min()
 max_code = codes.max()
@@ -139,6 +138,7 @@ apartment_se_int_new = apartment_se_int_new.groupby(["Construction year"]).sum()
 
 sc_se, outflow_se, inflow_se = stock_driven(apartment_se_int_new, lifetime)
 sc_se.columns = range(1880, 2051)
+
 # MFA for each kommun #
 sc_df = []
 out_df= []
@@ -189,6 +189,7 @@ inflow_all_kommun = inflow_all_kommun.rename(columns={'index': 'Year', 0: 'Inflo
 outflow_all_kommun['Kommun'] = repeated_code
 outflow_all_kommun = outflow_all_kommun.rename(columns={'index': 'Year'})
 
+#%%
 # Mutiply MI to each kommun #
 structure_stock = []
 skin_stock = []
@@ -245,7 +246,6 @@ for i in codes:
 space_stock_all = space_stock_all.reset_index()
 space_stock_all = space_stock_all.rename(columns={'index': 'Year'}) 
 
-#%%
 # Renovation in terms of floor area #
 skin_ren = []
 
@@ -411,6 +411,22 @@ for i in codes:
 apartment_space_ren_m = apartment_space_ren_m.reset_index()
 apartment_space_ren_m = apartment_space_ren_m.rename(columns={'index': 'Construction year'}) 
 
+#%%
+kommun = apartment_skin_ren_floor["Kommun"]
+se_skin_ren_floor = apartment_skin_ren_floor.drop(columns='Kommun')
+se_skin_ren_floor = se_skin_ren_floor.sum(axis=1)
+se_skin_ren_floor = pd.DataFrame(se_skin_ren_floor)
+se_skin_ren_floor = se_skin_ren_floor.reset_index()
+se_skin_ren_floor = se_skin_ren_floor.rename(columns={'index': 'Year'}) 
+se_skin_ren_floor = se_skin_ren_floor.groupby(["Year"]).sum()
+
+se_floor = stock_all_kommun.drop(columns='Kommun')
+se_floor = se_floor.groupby(["Year"]).sum()
+
+se_demo = outflow_all_kommun.drop(columns='Kommun')
+se_demo = se_demo.groupby(["Year"]).sum()
+se_demo = se_demo.sum(axis=1)
+se_demo
 #%%
 # Plotting #
 # Sum at national level #
